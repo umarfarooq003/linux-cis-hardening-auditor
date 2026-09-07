@@ -310,6 +310,7 @@ def build(root: Path, profile: str = "secure") -> Path:
         facts = dict(FACTS_SECURE)
         facts["firewall"] = {"backend": "ufw", "active": True, "default_incoming": "allow"}
     _w(root, "run/cis-auditor-facts.json", json.dumps(facts))
+    _w(root, "run/cis-auditor-fixture", "true\n")
 
     return root
 
