@@ -1,0 +1,1152 @@
+# =====================================================================
+# Linux CIS Hardening Auditor -- Rule Definitions
+# =====================================================================
+# These are CIS-INSPIRED controls. They are NOT an official CIS Benchmark
+# and passing them does not constitute CIS certification. Exact benchmark
+# section numbers are intentionally NOT claimed; each rule references the
+# relevant CIS Benchmark *theme* it is inspired by. Applicability depends on
+# the distribution and version -- validate against the official CIS Benchmark
+# for your specific OS.
+#
+# Severities are calibrated per-rule (not every failure is HIGH).
+# Rules bind to reusable parametric check implementations via `check.type`.
+# =====================================================================
+
+rules:
+
+  # ------------------------------------------------------------------
+  # SSH HARDENING
+  # ------------------------------------------------------------------
+  - rule_id: SSH-001
+    title: Disable direct SSH root login
+    category: ssh
+    severity: HIGH
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (PermitRootLogin)"
+    description: "SSH should not permit direct interactive login as root."
+    rationale: "Direct root login removes per-user accountability and makes root a single brute-force target."
+    quick: true
+    expected: { PermitRootLogin: "no" }
+    check:
+      type: sshd_config
+      params: { option: PermitRootLogin, op: equals, expected: "no", default: "prohibit-password" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'PermitRootLogin no' in /etc/ssh/sshd_config and reload sshd."
+      action: { kind: sshd_option, option: PermitRootLogin, value: "no" }
+
+  - rule_id: SSH-002
+    title: Disallow empty SSH passwords
+    category: ssh
+    severity: HIGH
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (PermitEmptyPasswords)"
+    description: "SSH must reject accounts with empty passwords."
+    rationale: "Empty-password logins allow trivial unauthenticated access."
+    quick: true
+    expected: { PermitEmptyPasswords: "no" }
+    check:
+      type: sshd_config
+      params: { option: PermitEmptyPasswords, op: equals, expected: "no", default: "no" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'PermitEmptyPasswords no' in /etc/ssh/sshd_config."
+      action: { kind: sshd_option, option: PermitEmptyPasswords, value: "no" }
+
+  - rule_id: SSH-003
+    title: Review SSH password authentication
+    category: ssh
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (PasswordAuthentication)"
+    description: "Key-based authentication is preferred over passwords."
+    rationale: "Disabling passwords defeats password brute-forcing, but must only be done once key-based access is confirmed working."
+    expected: { PasswordAuthentication: "no" }
+    check:
+      type: sshd_config
+      params:
+        option: PasswordAuthentication
+        op: equals
+        expected: "no"
+        default: "yes"
+        warn_only: true
+        warn_note: "Disable ONLY after verifying key-based access works, or remote users may be locked out."
+    remediation:
+      supported: false
+      requires_confirmation: true
+      instructions: "Manually set 'PasswordAuthentication no' AFTER confirming SSH key access. Not auto-remediated to avoid lockout."
+
+  - rule_id: SSH-004
+    title: Disable SSH X11 forwarding
+    category: ssh
+    severity: LOW
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (X11Forwarding)"
+    description: "X11 forwarding should be disabled unless explicitly required."
+    expected: { X11Forwarding: "no" }
+    check:
+      type: sshd_config
+      params: { option: X11Forwarding, op: equals, expected: "no", default: "no" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'X11Forwarding no' in /etc/ssh/sshd_config."
+      action: { kind: sshd_option, option: X11Forwarding, value: "no" }
+
+  - rule_id: SSH-005
+    title: Limit SSH authentication attempts
+    category: ssh
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (MaxAuthTries)"
+    description: "MaxAuthTries should be 4 or fewer."
+    expected: { MaxAuthTries: "<=4" }
+    check:
+      type: sshd_config
+      params: { option: MaxAuthTries, op: lte, expected: "4", default: "6" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'MaxAuthTries 4' in /etc/ssh/sshd_config."
+      action: { kind: sshd_option, option: MaxAuthTries, value: "4" }
+
+  - rule_id: SSH-006
+    title: Configure SSH idle timeout interval
+    category: ssh
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (ClientAliveInterval)"
+    description: "ClientAliveInterval should be set (<=900s) to disconnect idle sessions."
+    expected: { ClientAliveInterval: "1..900" }
+    check:
+      type: sshd_config
+      params: { option: ClientAliveInterval, op: lte, expected: "900" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'ClientAliveInterval 300' in /etc/ssh/sshd_config."
+      action: { kind: sshd_option, option: ClientAliveInterval, value: "300" }
+
+  - rule_id: SSH-007
+    title: Configure SSH ClientAliveCountMax
+    category: ssh
+    severity: LOW
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (ClientAliveCountMax)"
+    description: "ClientAliveCountMax should be 3 or fewer."
+    expected: { ClientAliveCountMax: "<=3" }
+    check:
+      type: sshd_config
+      params: { option: ClientAliveCountMax, op: lte, expected: "3", default: "3" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'ClientAliveCountMax 3' in /etc/ssh/sshd_config."
+      action: { kind: sshd_option, option: ClientAliveCountMax, value: "3" }
+
+  - rule_id: SSH-008
+    title: Disable SSH host-based authentication
+    category: ssh
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (HostbasedAuthentication)"
+    description: "HostbasedAuthentication should be disabled."
+    expected: { HostbasedAuthentication: "no" }
+    check:
+      type: sshd_config
+      params: { option: HostbasedAuthentication, op: equals, expected: "no", default: "no" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'HostbasedAuthentication no'."
+      action: { kind: sshd_option, option: HostbasedAuthentication, value: "no" }
+
+  - rule_id: SSH-009
+    title: Enable SSH IgnoreRhosts
+    category: ssh
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (IgnoreRhosts)"
+    description: "IgnoreRhosts should be enabled."
+    expected: { IgnoreRhosts: "yes" }
+    check:
+      type: sshd_config
+      params: { option: IgnoreRhosts, op: equals, expected: "yes", default: "yes" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'IgnoreRhosts yes'."
+      action: { kind: sshd_option, option: IgnoreRhosts, value: "yes" }
+
+  - rule_id: SSH-010
+    title: Disable SSH PermitUserEnvironment
+    category: ssh
+    severity: LOW
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (PermitUserEnvironment)"
+    description: "PermitUserEnvironment should be disabled."
+    expected: { PermitUserEnvironment: "no" }
+    check:
+      type: sshd_config
+      params: { option: PermitUserEnvironment, op: equals, expected: "no", default: "no" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'PermitUserEnvironment no'."
+      action: { kind: sshd_option, option: PermitUserEnvironment, value: "no" }
+
+  - rule_id: SSH-011
+    title: Configure SSH LoginGraceTime
+    category: ssh
+    severity: LOW
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (LoginGraceTime)"
+    description: "LoginGraceTime should be 60 seconds or less."
+    expected: { LoginGraceTime: "<=60" }
+    check:
+      type: sshd_config
+      params: { option: LoginGraceTime, op: lte, expected: "60", default: "120" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      restart_service: ssh
+      instructions: "Set 'LoginGraceTime 60'."
+      action: { kind: sshd_option, option: LoginGraceTime, value: "60" }
+
+  - rule_id: SSH-012
+    title: Set SSH logging verbosity
+    category: ssh
+    severity: LOW
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (LogLevel)"
+    description: "LogLevel should be INFO or VERBOSE."
+    expected: { LogLevel: "INFO|VERBOSE" }
+    check:
+      type: sshd_config
+      params: { option: LogLevel, op: in, expected: "INFO,VERBOSE", default: "INFO" }
+
+  - rule_id: SSH-013
+    title: Restrict sshd_config file permissions
+    category: ssh
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (sshd_config permissions)"
+    description: "/etc/ssh/sshd_config must be owned by root and not group/world accessible."
+    expected: { mode: "<=0600", owner: root }
+    check:
+      type: file_permissions
+      params: { path: /etc/ssh/sshd_config, max_mode: "0600", owner: root, group: root }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "chown root:root /etc/ssh/sshd_config && chmod 600 /etc/ssh/sshd_config"
+      action: { kind: file_mode, path: /etc/ssh/sshd_config, mode: "0600", owner: root, group: root }
+
+  - rule_id: SSH-014
+    title: Restrict SSH host private key permissions
+    category: ssh
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: SSH Server Configuration (host key permissions)"
+    description: "SSH host private keys must not be group- or world-readable."
+    expected: { mode: "<=0600" }
+    check:
+      type: file_permissions
+      params: { glob_dir: /etc/ssh, glob_pattern: "ssh_host_*_key", max_mode: "0600", owner: root }
+
+  # ------------------------------------------------------------------
+  # AUTHENTICATION / PASSWORD POLICY
+  # ------------------------------------------------------------------
+  - rule_id: AUTH-001
+    title: Set maximum password age
+    category: authentication
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Configure Shadow Password Suite (PASS_MAX_DAYS)"
+    description: "PASS_MAX_DAYS should be 365 or fewer."
+    expected: { PASS_MAX_DAYS: "<=365" }
+    check:
+      type: login_defs
+      params: { key: PASS_MAX_DAYS, op: lte, expected: "365" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set PASS_MAX_DAYS 365 in /etc/login.defs."
+      action: { kind: login_defs, key: PASS_MAX_DAYS, value: "365" }
+
+  - rule_id: AUTH-002
+    title: Set minimum password age
+    category: authentication
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Configure Shadow Password Suite (PASS_MIN_DAYS)"
+    description: "PASS_MIN_DAYS should be at least 1."
+    expected: { PASS_MIN_DAYS: ">=1" }
+    check:
+      type: login_defs
+      params: { key: PASS_MIN_DAYS, op: gte, expected: "1" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set PASS_MIN_DAYS 1 in /etc/login.defs."
+      action: { kind: login_defs, key: PASS_MIN_DAYS, value: "1" }
+
+  - rule_id: AUTH-003
+    title: Set password expiration warning period
+    category: authentication
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Configure Shadow Password Suite (PASS_WARN_AGE)"
+    description: "PASS_WARN_AGE should be at least 7 days."
+    expected: { PASS_WARN_AGE: ">=7" }
+    check:
+      type: login_defs
+      params: { key: PASS_WARN_AGE, op: gte, expected: "7" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set PASS_WARN_AGE 7 in /etc/login.defs."
+      action: { kind: login_defs, key: PASS_WARN_AGE, value: "7" }
+
+  - rule_id: AUTH-004
+    title: Enforce minimum password length
+    category: authentication
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Configure PAM (pam_pwquality minlen)"
+    description: "Password minimum length (pwquality minlen) should be >= 14."
+    expected: { minlen: ">=14" }
+    check:
+      type: pwquality
+      params: { key: minlen, op: gte, expected: "14" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set 'minlen = 14' in /etc/security/pwquality.conf."
+      action: { kind: pwquality, key: minlen, value: "14" }
+
+  - rule_id: AUTH-005
+    title: Require password complexity via pam_pwquality
+    category: authentication
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Configure PAM (pam_pwquality)"
+    description: "pam_pwquality should be active in the password stack."
+    check:
+      type: pam_module
+      params:
+        files: ["/etc/pam.d/common-password", "/etc/pam.d/system-auth", "/etc/pam.d/password-auth"]
+        module: pam_pwquality.so
+
+  - rule_id: AUTH-006
+    title: Enforce password history (reuse prevention)
+    category: authentication
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Configure PAM (password reuse)"
+    description: "Password reuse should be limited (remember >= 5)."
+    expected: { remember: ">=5" }
+    check:
+      type: pam_module
+      params:
+        files: ["/etc/pam.d/common-password", "/etc/pam.d/system-auth"]
+        module: pam_pwhistory.so
+        option: remember
+        op: gte
+        expected: "5"
+
+  - rule_id: AUTH-007
+    title: Configure account lockout on failed logins
+    category: authentication
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Configure PAM (pam_faillock)"
+    description: "Account lockout (pam_faillock) should be configured."
+    check:
+      type: pam_module
+      params:
+        files: ["/etc/pam.d/common-auth", "/etc/pam.d/system-auth", "/etc/pam.d/password-auth"]
+        module: pam_faillock.so
+
+  - rule_id: AUTH-008
+    title: No accounts with empty passwords
+    category: authentication
+    severity: HIGH
+    benchmark_reference: "CIS-inspired: Secure /etc/shadow (empty passwords)"
+    description: "No account may have an empty password field in /etc/shadow."
+    quick: true
+    check:
+      type: passwd_scan
+      params: { mode: empty_password }
+
+  - rule_id: AUTH-009
+    title: Use strong password hashing (SHA-512)
+    category: authentication
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Configure Shadow Password Suite (ENCRYPT_METHOD)"
+    description: "ENCRYPT_METHOD should be SHA512 (or a stronger supported scheme)."
+    expected: { ENCRYPT_METHOD: "SHA512" }
+    check:
+      type: login_defs
+      params: { key: ENCRYPT_METHOD, op: in, expected: "SHA512,YESCRYPT" }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set ENCRYPT_METHOD SHA512 in /etc/login.defs (affects new passwords only)."
+      action: { kind: login_defs, key: ENCRYPT_METHOD, value: "SHA512" }
+
+  # ------------------------------------------------------------------
+  # USER & GROUP SECURITY
+  # ------------------------------------------------------------------
+  - rule_id: USER-001
+    title: Only root may have UID 0
+    category: users
+    severity: HIGH
+    benchmark_reference: "CIS-inspired: User and Group Settings (UID 0)"
+    description: "The only account with UID 0 must be root."
+    quick: true
+    check:
+      type: passwd_scan
+      params: { mode: uid0 }
+
+  - rule_id: USER-002
+    title: No duplicate UIDs
+    category: users
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: User and Group Settings (duplicate UIDs)"
+    description: "Every user account should have a unique UID."
+    check:
+      type: passwd_scan
+      params: { mode: duplicate_uid }
+
+  - rule_id: USER-003
+    title: No duplicate GIDs
+    category: users
+    severity: LOW
+    benchmark_reference: "CIS-inspired: User and Group Settings (duplicate GIDs)"
+    description: "Every group should have a unique GID."
+    check:
+      type: passwd_scan
+      params: { mode: duplicate_gid }
+
+  - rule_id: USER-004
+    title: No duplicate usernames
+    category: users
+    severity: LOW
+    benchmark_reference: "CIS-inspired: User and Group Settings (duplicate names)"
+    description: "Usernames in /etc/passwd should be unique."
+    check:
+      type: passwd_scan
+      params: { mode: duplicate_user }
+
+  - rule_id: USER-005
+    title: System accounts should not have a login shell
+    category: users
+    severity: LOW
+    benchmark_reference: "CIS-inspired: User and Group Settings (system account shells)"
+    description: "Non-root system accounts should use nologin/false."
+    check:
+      type: passwd_scan
+      params: { mode: system_nologin }
+
+  - rule_id: USER-006
+    title: Secure /etc/passwd permissions
+    category: users
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Secure permissions of critical files (/etc/passwd)"
+    description: "/etc/passwd should be root-owned and mode <= 0644."
+    check:
+      type: file_permissions
+      params: { path: /etc/passwd, max_mode: "0644", owner: root, group: root }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "chown root:root /etc/passwd && chmod 644 /etc/passwd"
+      action: { kind: file_mode, path: /etc/passwd, mode: "0644", owner: root, group: root }
+
+  - rule_id: USER-007
+    title: Secure /etc/shadow permissions
+    category: users
+    severity: HIGH
+    benchmark_reference: "CIS-inspired: Secure permissions of critical files (/etc/shadow)"
+    description: "/etc/shadow must not be world-readable (mode <= 0640, owner root)."
+    quick: true
+    check:
+      type: file_permissions
+      params: { path: /etc/shadow, max_mode: "0640", owner: root }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "chown root:shadow /etc/shadow && chmod 640 /etc/shadow"
+      action: { kind: file_mode, path: /etc/shadow, mode: "0640", owner: root, group: shadow }
+
+  - rule_id: USER-008
+    title: Secure /etc/group permissions
+    category: users
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Secure permissions of critical files (/etc/group)"
+    description: "/etc/group should be root-owned and mode <= 0644."
+    check:
+      type: file_permissions
+      params: { path: /etc/group, max_mode: "0644", owner: root, group: root }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "chown root:root /etc/group && chmod 644 /etc/group"
+      action: { kind: file_mode, path: /etc/group, mode: "0644", owner: root, group: root }
+
+  - rule_id: USER-009
+    title: Secure /etc/gshadow permissions
+    category: users
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Secure permissions of critical files (/etc/gshadow)"
+    description: "/etc/gshadow must not be world-readable (mode <= 0640)."
+    check:
+      type: file_permissions
+      params: { path: /etc/gshadow, max_mode: "0640", owner: root }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "chown root:shadow /etc/gshadow && chmod 640 /etc/gshadow"
+      action: { kind: file_mode, path: /etc/gshadow, mode: "0640", owner: root, group: shadow }
+
+  # ------------------------------------------------------------------
+  # FILESYSTEM & PERMISSIONS
+  # ------------------------------------------------------------------
+  - rule_id: FS-001
+    title: /tmp mounted with nodev
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Filesystem Configuration (/tmp nodev)"
+    description: "/tmp should be a separate mount with the nodev option."
+    check:
+      type: mount_option
+      params: { mountpoint: /tmp, option: nodev, require_separate: false }
+
+  - rule_id: FS-002
+    title: /tmp mounted with nosuid
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Filesystem Configuration (/tmp nosuid)"
+    description: "/tmp should be mounted with nosuid."
+    check:
+      type: mount_option
+      params: { mountpoint: /tmp, option: nosuid, require_separate: false }
+
+  - rule_id: FS-003
+    title: /tmp mounted with noexec
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Filesystem Configuration (/tmp noexec)"
+    description: "/tmp should be mounted with noexec (verify no legitimate tooling relies on executing from /tmp)."
+    check:
+      type: mount_option
+      params: { mountpoint: /tmp, option: noexec, require_separate: false }
+
+  - rule_id: FS-004
+    title: /dev/shm mounted with nodev
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Filesystem Configuration (/dev/shm nodev)"
+    description: "/dev/shm should be mounted with nodev."
+    check:
+      type: mount_option
+      params: { mountpoint: /dev/shm, option: nodev, require_separate: false }
+
+  - rule_id: FS-005
+    title: /dev/shm mounted with nosuid
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Filesystem Configuration (/dev/shm nosuid)"
+    description: "/dev/shm should be mounted with nosuid."
+    check:
+      type: mount_option
+      params: { mountpoint: /dev/shm, option: nosuid, require_separate: false }
+
+  - rule_id: FS-006
+    title: /dev/shm mounted with noexec
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Filesystem Configuration (/dev/shm noexec)"
+    description: "/dev/shm should be mounted with noexec."
+    check:
+      type: mount_option
+      params: { mountpoint: /dev/shm, option: noexec, require_separate: false }
+
+  - rule_id: FS-007
+    title: /var/tmp mounted with nosuid
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Filesystem Configuration (/var/tmp nosuid)"
+    description: "/var/tmp, if separate, should be mounted with nosuid."
+    check:
+      type: mount_option
+      params: { mountpoint: /var/tmp, option: nosuid, require_separate: false }
+
+  - rule_id: FS-008
+    title: /home mounted with nodev
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Filesystem Configuration (/home nodev)"
+    description: "/home, if separate, should be mounted with nodev."
+    check:
+      type: mount_option
+      params: { mountpoint: /home, option: nodev, require_separate: false }
+
+  - rule_id: FS-009
+    title: No world-writable files
+    category: filesystem
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Filesystem Integrity (world-writable files)"
+    description: "There should be no unexpected world-writable files."
+    check:
+      type: world_writable
+      params:
+        mode: files
+        scan_paths: ["/etc", "/usr/local", "/opt", "/var/tmp", "/tmp", "/home", "/srv"]
+
+  - rule_id: FS-010
+    title: Sticky bit set on world-writable directories
+    category: filesystem
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Filesystem Integrity (sticky bit)"
+    description: "World-writable directories must have the sticky bit set."
+    check:
+      type: world_writable
+      params:
+        mode: sticky_dirs
+        scan_paths: ["/tmp", "/var", "/dev/shm", "/opt", "/srv"]
+
+  - rule_id: FS-011
+    title: Review unauthorized SUID executables
+    category: filesystem
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Filesystem Integrity (SUID audit)"
+    description: "SUID binaries outside a known baseline should be reviewed."
+    check:
+      type: suid_sgid
+      params:
+        mode: suid
+        scan_paths: ["/usr", "/bin", "/sbin"]
+        baseline:
+          - /usr/bin/sudo
+          - /usr/bin/su
+          - /usr/bin/passwd
+          - /usr/bin/chsh
+          - /usr/bin/chfn
+          - /usr/bin/newgrp
+          - /usr/bin/gpasswd
+          - /usr/bin/mount
+          - /usr/bin/umount
+          - /usr/bin/fusermount3
+          - /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+          - /usr/lib/openssh/ssh-keysign
+          - /usr/lib/policykit-1/polkit-agent-helper-1
+
+  - rule_id: FS-012
+    title: Review unauthorized SGID executables
+    category: filesystem
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Filesystem Integrity (SGID audit)"
+    description: "SGID binaries outside a known baseline should be reviewed."
+    check:
+      type: suid_sgid
+      params:
+        mode: sgid
+        scan_paths: ["/usr", "/bin", "/sbin"]
+        baseline:
+          - /usr/bin/wall
+          - /usr/bin/write
+          - /usr/bin/ssh-agent
+          - /usr/bin/crontab
+          - /usr/bin/chage
+          - /usr/bin/expiry
+          - /usr/sbin/unix_chkpwd
+          - /usr/bin/mlocate
+
+  - rule_id: FS-013
+    title: Disable legacy cramfs filesystem module
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Disable unused filesystems (cramfs)"
+    description: "The cramfs kernel module should be disabled if unused."
+    check:
+      type: kernel_module
+      params: { module: cramfs }
+
+  - rule_id: FS-014
+    title: Disable legacy hfsplus filesystem module
+    category: filesystem
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Disable unused filesystems (hfsplus)"
+    description: "The hfsplus kernel module should be disabled if unused."
+    check:
+      type: kernel_module
+      params: { module: hfsplus }
+
+  # ------------------------------------------------------------------
+  # NETWORK (sysctl)
+  # ------------------------------------------------------------------
+  - rule_id: NET-001
+    title: Disable IP forwarding
+    category: network
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Network Parameters (ip_forward)"
+    description: "IP forwarding should be disabled on hosts that are not routers."
+    expected: { "net.ipv4.ip_forward": "0" }
+    check:
+      type: sysctl
+      params: { key: net.ipv4.ip_forward, op: equals, expected: "0", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set net.ipv4.ip_forward=0 (only if this host is not a router)."
+      action: { kind: sysctl, key: net.ipv4.ip_forward, value: "0" }
+
+  - rule_id: NET-002
+    title: Disable ICMP redirect sending
+    category: network
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Network Parameters (send_redirects)"
+    description: "The host should not send ICMP redirects."
+    expected: { "net.ipv4.conf.all.send_redirects": "0" }
+    check:
+      type: sysctl
+      params: { key: net.ipv4.conf.all.send_redirects, op: equals, expected: "0", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set net.ipv4.conf.all.send_redirects=0."
+      action: { kind: sysctl, key: net.ipv4.conf.all.send_redirects, value: "0" }
+
+  - rule_id: NET-003
+    title: Disable ICMP redirect acceptance
+    category: network
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Network Parameters (accept_redirects)"
+    description: "The host should not accept ICMP redirects."
+    expected: { "net.ipv4.conf.all.accept_redirects": "0" }
+    check:
+      type: sysctl
+      params: { key: net.ipv4.conf.all.accept_redirects, op: equals, expected: "0", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set net.ipv4.conf.all.accept_redirects=0."
+      action: { kind: sysctl, key: net.ipv4.conf.all.accept_redirects, value: "0" }
+
+  - rule_id: NET-004
+    title: Disable secure ICMP redirect acceptance
+    category: network
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Network Parameters (secure_redirects)"
+    description: "The host should not accept secure ICMP redirects."
+    expected: { "net.ipv4.conf.all.secure_redirects": "0" }
+    check:
+      type: sysctl
+      params: { key: net.ipv4.conf.all.secure_redirects, op: equals, expected: "0", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set net.ipv4.conf.all.secure_redirects=0."
+      action: { kind: sysctl, key: net.ipv4.conf.all.secure_redirects, value: "0" }
+
+  - rule_id: NET-005
+    title: Disable source-routed packet acceptance
+    category: network
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Network Parameters (accept_source_route)"
+    description: "The host should not accept source-routed packets."
+    expected: { "net.ipv4.conf.all.accept_source_route": "0" }
+    check:
+      type: sysctl
+      params: { key: net.ipv4.conf.all.accept_source_route, op: equals, expected: "0", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set net.ipv4.conf.all.accept_source_route=0."
+      action: { kind: sysctl, key: net.ipv4.conf.all.accept_source_route, value: "0" }
+
+  - rule_id: NET-006
+    title: Enable logging of martian packets
+    category: network
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Network Parameters (log_martians)"
+    description: "Martian (impossible-source) packets should be logged."
+    expected: { "net.ipv4.conf.all.log_martians": "1" }
+    check:
+      type: sysctl
+      params: { key: net.ipv4.conf.all.log_martians, op: equals, expected: "1", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set net.ipv4.conf.all.log_martians=1."
+      action: { kind: sysctl, key: net.ipv4.conf.all.log_martians, value: "1" }
+
+  - rule_id: NET-007
+    title: Enable reverse path filtering
+    category: network
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Network Parameters (rp_filter)"
+    description: "Reverse path filtering should be enabled."
+    expected: { "net.ipv4.conf.all.rp_filter": "1" }
+    check:
+      type: sysctl
+      params: { key: net.ipv4.conf.all.rp_filter, op: gte, expected: "1", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set net.ipv4.conf.all.rp_filter=1."
+      action: { kind: sysctl, key: net.ipv4.conf.all.rp_filter, value: "1" }
+
+  - rule_id: NET-008
+    title: Enable TCP SYN cookies
+    category: network
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Network Parameters (tcp_syncookies)"
+    description: "TCP SYN cookies should be enabled to mitigate SYN floods."
+    expected: { "net.ipv4.tcp_syncookies": "1" }
+    check:
+      type: sysctl
+      params: { key: net.ipv4.tcp_syncookies, op: equals, expected: "1", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set net.ipv4.tcp_syncookies=1."
+      action: { kind: sysctl, key: net.ipv4.tcp_syncookies, value: "1" }
+
+  - rule_id: NET-009
+    title: Ignore ICMP broadcast requests
+    category: network
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Network Parameters (icmp_echo_ignore_broadcasts)"
+    description: "The host should ignore ICMP echo requests to broadcast addresses."
+    expected: { "net.ipv4.icmp_echo_ignore_broadcasts": "1" }
+    check:
+      type: sysctl
+      params: { key: net.ipv4.icmp_echo_ignore_broadcasts, op: equals, expected: "1", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set net.ipv4.icmp_echo_ignore_broadcasts=1."
+      action: { kind: sysctl, key: net.ipv4.icmp_echo_ignore_broadcasts, value: "1" }
+
+  - rule_id: NET-010
+    title: Do not accept IPv6 router advertisements
+    category: network
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Network Parameters (IPv6 accept_ra)"
+    description: "If IPv6 is enabled, router advertisements should not be accepted on servers."
+    expected: { "net.ipv6.conf.all.accept_ra": "0" }
+    check:
+      type: sysctl
+      params: { key: net.ipv6.conf.all.accept_ra, op: equals, expected: "0", unset_status: WARN }
+
+  # ------------------------------------------------------------------
+  # FIREWALL
+  # ------------------------------------------------------------------
+  - rule_id: FW-001
+    title: A host firewall is enabled
+    category: firewall
+    severity: HIGH
+    benchmark_reference: "CIS-inspired: Host Based Firewall (firewall enabled)"
+    description: "A host firewall (ufw/nftables/iptables) should be active."
+    quick: true
+    check:
+      type: firewall
+      params: { mode: active }
+
+  - rule_id: FW-002
+    title: Firewall default inbound policy is deny
+    category: firewall
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Host Based Firewall (default deny)"
+    description: "The default inbound firewall policy should be deny/drop."
+    check:
+      type: firewall
+      params: { mode: default_deny }
+
+  # ------------------------------------------------------------------
+  # KERNEL / SYSTEM HARDENING (sysctl)
+  # ------------------------------------------------------------------
+  - rule_id: KRN-001
+    title: Enable full address space layout randomization (ASLR)
+    category: kernel
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Kernel Parameters (randomize_va_space)"
+    description: "kernel.randomize_va_space should be 2 (full ASLR)."
+    expected: { "kernel.randomize_va_space": "2" }
+    check:
+      type: sysctl
+      params: { key: kernel.randomize_va_space, op: equals, expected: "2", unset_status: FAIL }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set kernel.randomize_va_space=2."
+      action: { kind: sysctl, key: kernel.randomize_va_space, value: "2" }
+
+  - rule_id: KRN-002
+    title: Restrict kernel pointer exposure
+    category: kernel
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Kernel Parameters (kptr_restrict)"
+    description: "kernel.kptr_restrict should be >= 1."
+    expected: { "kernel.kptr_restrict": ">=1" }
+    check:
+      type: sysctl
+      params: { key: kernel.kptr_restrict, op: gte, expected: "1", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set kernel.kptr_restrict=1."
+      action: { kind: sysctl, key: kernel.kptr_restrict, value: "1" }
+
+  - rule_id: KRN-003
+    title: Restrict access to kernel dmesg
+    category: kernel
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Kernel Parameters (dmesg_restrict)"
+    description: "kernel.dmesg_restrict should be 1."
+    expected: { "kernel.dmesg_restrict": "1" }
+    check:
+      type: sysctl
+      params: { key: kernel.dmesg_restrict, op: equals, expected: "1", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set kernel.dmesg_restrict=1."
+      action: { kind: sysctl, key: kernel.dmesg_restrict, value: "1" }
+
+  - rule_id: KRN-004
+    title: Restrict ptrace scope
+    category: kernel
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Kernel Parameters (yama.ptrace_scope)"
+    description: "kernel.yama.ptrace_scope should be >= 1."
+    expected: { "kernel.yama.ptrace_scope": ">=1" }
+    check:
+      type: sysctl
+      params: { key: kernel.yama.ptrace_scope, op: gte, expected: "1", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set kernel.yama.ptrace_scope=1."
+      action: { kind: sysctl, key: kernel.yama.ptrace_scope, value: "1" }
+
+  - rule_id: KRN-005
+    title: Disable SUID core dumps
+    category: kernel
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Kernel Parameters (fs.suid_dumpable)"
+    description: "fs.suid_dumpable should be 0 to prevent SUID programs dumping core."
+    expected: { "fs.suid_dumpable": "0" }
+    check:
+      type: sysctl
+      params: { key: fs.suid_dumpable, op: equals, expected: "0", unset_status: WARN }
+    remediation:
+      supported: true
+      requires_confirmation: true
+      instructions: "Set fs.suid_dumpable=0."
+      action: { kind: sysctl, key: fs.suid_dumpable, value: "0" }
+
+  # ------------------------------------------------------------------
+  # SERVICES
+  # ------------------------------------------------------------------
+  - rule_id: SVC-001
+    title: Legacy telnet server should be disabled
+    category: services
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Special Purpose Services (telnet)"
+    description: "The telnet server transmits credentials in cleartext and should be disabled if not required."
+    check:
+      type: service_status
+      params: { service: telnet.socket, want: disabled, review: true }
+
+  - rule_id: SVC-002
+    title: Review avahi-daemon service
+    category: services
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Special Purpose Services (avahi)"
+    description: "avahi-daemon (mDNS) is often unnecessary on servers -- review whether required."
+    check:
+      type: service_status
+      params: { service: avahi-daemon.service, want: disabled, review: true }
+
+  - rule_id: SVC-003
+    title: Review CUPS printing service
+    category: services
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Special Purpose Services (cups)"
+    description: "The CUPS print service is often unnecessary on servers -- review whether required."
+    check:
+      type: service_status
+      params: { service: cups.service, want: disabled, review: true }
+
+  - rule_id: SVC-004
+    title: Review rpcbind service
+    category: services
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Special Purpose Services (rpcbind)"
+    description: "rpcbind exposes RPC services and is often unnecessary -- review whether required."
+    check:
+      type: service_status
+      params: { service: rpcbind.service, want: disabled, review: true }
+
+  # ------------------------------------------------------------------
+  # LOGGING & AUDITING
+  # ------------------------------------------------------------------
+  - rule_id: LOG-001
+    title: Audit daemon (auditd) is enabled
+    category: logging
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Logging and Auditing (auditd enabled)"
+    description: "auditd should be installed and enabled to record security events."
+    check:
+      type: service_status
+      params: { service: auditd.service, want: enabled }
+
+  - rule_id: LOG-002
+    title: Audit rules are defined
+    category: logging
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: Logging and Auditing (audit rules)"
+    description: "Audit rules should be present so meaningful events are recorded."
+    check:
+      type: auditd_rule
+      params: { mode: rules_present }
+
+  - rule_id: LOG-003
+    title: Authentication events are audited
+    category: logging
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Logging and Auditing (auth events)"
+    description: "Audit rules should watch authentication-related files/events."
+    check:
+      type: auditd_rule
+      params: { mode: auth_events }
+
+  - rule_id: LOG-004
+    title: Audit configuration is immutable
+    category: logging
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Logging and Auditing (immutable audit)"
+    description: "Audit configuration should be made immutable (-e 2)."
+    check:
+      type: auditd_rule
+      params: { mode: immutable }
+
+  - rule_id: LOG-005
+    title: System journald logging is active
+    category: logging
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Logging and Auditing (system logging)"
+    description: "The systemd journal should be running to collect system logs."
+    check:
+      type: service_status
+      params: { service: systemd-journald.service, want: active }
+
+  - rule_id: LOG-006
+    title: Secure /var/log directory permissions
+    category: logging
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Logging and Auditing (log permissions)"
+    description: "/var/log should be root-owned and not world-writable (mode <= 0755)."
+    check:
+      type: file_permissions
+      params: { path: /var/log, max_mode: "0755", owner: root }
+
+  - rule_id: LOG-007
+    title: Secure authentication log permissions
+    category: logging
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Logging and Auditing (auth log permissions)"
+    description: "/var/log/auth.log, if present, must not be world-readable (mode <= 0640)."
+    check:
+      type: file_permissions
+      params: { path: /var/log/auth.log, max_mode: "0640", must_exist: false }
+
+  # ------------------------------------------------------------------
+  # SUDO
+  # ------------------------------------------------------------------
+  - rule_id: SUDO-001
+    title: Secure /etc/sudoers permissions
+    category: sudo
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: sudo Configuration (sudoers permissions)"
+    description: "/etc/sudoers must be owned by root and mode <= 0440."
+    check:
+      type: sudoers
+      params: { mode: perms }
+
+  - rule_id: SUDO-002
+    title: Secure /etc/sudoers.d directory permissions
+    category: sudo
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: sudo Configuration (sudoers.d permissions)"
+    description: "/etc/sudoers.d should be root-owned and mode <= 0750."
+    check:
+      type: file_permissions
+      params: { path: /etc/sudoers.d, max_mode: "0750", owner: root }
+
+  - rule_id: SUDO-003
+    title: Review sudo NOPASSWD directives
+    category: sudo
+    severity: MEDIUM
+    benchmark_reference: "CIS-inspired: sudo Configuration (NOPASSWD)"
+    description: "NOPASSWD directives grant passwordless privilege escalation and should be reviewed."
+    check:
+      type: sudoers
+      params: { mode: nopasswd }
+
+  - rule_id: SUDO-004
+    title: Require a pty for sudo commands
+    category: sudo
+    severity: LOW
+    benchmark_reference: "CIS-inspired: sudo Configuration (use_pty)"
+    description: "'Defaults use_pty' should be configured to reduce session hijacking risk."
+    check:
+      type: sudoers
+      params: { mode: use_pty }
+
+  - rule_id: SUDO-005
+    title: Review wildcard sudo command specifications
+    category: sudo
+    severity: LOW
+    benchmark_reference: "CIS-inspired: sudo Configuration (wildcards)"
+    description: "Wildcards in sudo command specifications can be dangerous and should be reviewed."
+    check:
+      type: sudoers
+      params: { mode: wildcard }
+
+  # ------------------------------------------------------------------
+  # CRON / SCHEDULED TASKS
+  # ------------------------------------------------------------------
+  - rule_id: CRON-001
+    title: Secure /etc/crontab permissions
+    category: cron
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Job Schedulers (crontab permissions)"
+    description: "/etc/crontab should be root-owned and mode <= 0600."
+    check:
+      type: cron_permissions
+      params: { path: /etc/crontab, max_mode: "0600", allow_missing: false }
+
+  - rule_id: CRON-002
+    title: Secure /etc/cron.d permissions
+    category: cron
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Job Schedulers (cron.d permissions)"
+    description: "/etc/cron.d should be root-owned and mode <= 0700."
+    check:
+      type: cron_permissions
+      params: { path: /etc/cron.d, max_mode: "0700" }
+
+  - rule_id: CRON-003
+    title: Restrict who can use cron (cron.allow)
+    category: cron
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Job Schedulers (cron.allow)"
+    description: "cron.allow should exist to restrict which users may schedule cron jobs."
+    check:
+      type: cron_permissions
+      params: { path: /etc/cron.allow, max_mode: "0640", access_file: true }
+
+  - rule_id: CRON-004
+    title: Restrict who can use at (at.allow)
+    category: cron
+    severity: LOW
+    benchmark_reference: "CIS-inspired: Job Schedulers (at.allow)"
+    description: "at.allow should exist to restrict which users may schedule at jobs."
+    check:
+      type: cron_permissions
+      params: { path: /etc/at.allow, max_mode: "0640", access_file: true }

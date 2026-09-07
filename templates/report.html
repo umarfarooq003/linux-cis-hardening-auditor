@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux Security Assessment — {{ report.system.hostname }}</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --panel2: #172033; --ink: #e2e8f0;
+    --muted: #94a3b8; --line: #334155; --accent: #38bdf8;
+    --crit: #dc2626; --high: #ea580c; --med: #d97706; --low: #2563eb; --info: #64748b;
+    --pass: #16a34a; --fail: #dc2626; --warn: #d97706; --na: #64748b; --err: #7c3aed;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+         background: var(--bg); color: var(--ink); line-height: 1.5; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 64px; }
+  header.top { display: flex; justify-content: space-between; align-items: flex-start;
+               gap: 24px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 32px 0 12px; border-left: 3px solid var(--accent); padding-left: 10px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px;
+           font-weight: 700; letter-spacing: .3px; }
+  .sev-CRITICAL { background: var(--crit); color: #fff; }
+  .sev-HIGH { background: var(--high); color: #fff; }
+  .sev-MEDIUM { background: var(--med); color: #1a1206; }
+  .sev-LOW { background: var(--low); color: #fff; }
+  .sev-INFO { background: var(--info); color: #fff; }
+  .st-PASS { color: var(--pass); font-weight: 700; }
+  .st-FAIL { color: var(--fail); font-weight: 700; }
+  .st-WARN { color: var(--warn); font-weight: 700; }
+  .st-NOT_APPLICABLE { color: var(--na); }
+  .st-ERROR { color: var(--err); font-weight: 700; }
+
+  .scoreCard { display: flex; align-items: center; gap: 20px; }
+  .gauge { width: 128px; height: 128px; border-radius: 50%; display: grid; place-items: center;
+           background: conic-gradient(var(--gcol) calc(var(--score)*1%), #334155 0); flex: none; }
+  .gauge .inner { width: 100px; height: 100px; border-radius: 50%; background: var(--panel);
+                  display: grid; place-items: center; text-align: center; }
+  .gauge .num { font-size: 30px; font-weight: 800; }
+  .gauge .den { font-size: 12px; color: var(--muted); }
+
+  .grid { display: grid; gap: 14px; }
+  .cards { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .card .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  .card .v { font-size: 26px; font-weight: 800; margin-top: 4px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--panel2); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+  tr:last-child td { border-bottom: none; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .evidence { color: var(--muted); white-space: pre-wrap; }
+
+  .catbar { display: grid; grid-template-columns: 130px 1fr 48px; gap: 10px; align-items: center; margin: 6px 0; }
+  .track { background: #334155; height: 12px; border-radius: 6px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 6px; }
+  .infoTable td { border: none; padding: 3px 12px 3px 0; }
+  .infoTable td.k { color: var(--muted); width: 160px; }
+  .note { background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--med);
+          padding: 12px 14px; border-radius: 8px; font-size: 12.5px; color: var(--muted); }
+  footer { margin-top: 40px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .pill { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  {% set score = report.summary.score %}
+  {% set gcol = 'var(--pass)' if score >= 80 else ('var(--warn)' if score >= 50 else 'var(--fail)') %}
+
+  <header class="top">
+    <div>
+      <h1>Linux Security Hardening Assessment</h1>
+      <div class="sub">CIS-inspired configuration audit &nbsp;•&nbsp; Tool v{{ report.tool_version }}
+        &nbsp;•&nbsp; {{ report.timestamp.strftime('%Y-%m-%d %H:%M UTC') }}</div>
+      <div class="sub">Host: <b>{{ report.system.hostname }}</b> &nbsp;•&nbsp;
+        {{ report.system.distribution }} {{ report.system.version }} &nbsp;•&nbsp;
+        kernel {{ report.system.kernel }} &nbsp;•&nbsp; {{ report.system.architecture }}</div>
+    </div>
+    <div class="scoreCard">
+      <div class="gauge" style="--score: {{ score }}; --gcol: {{ gcol }};">
+        <div class="inner"><div><div class="num">{{ score }}</div><div class="den">/ 100</div></div></div>
+      </div>
+    </div>
+  </header>
+
+  <h2>Executive Summary</h2>
+  <div class="grid cards">
+    <div class="card"><div class="k">Pass</div><div class="v st-PASS">{{ report.summary.passed }}</div></div>
+    <div class="card"><div class="k">Fail</div><div class="v st-FAIL">{{ report.summary.failed }}</div></div>
+    <div class="card"><div class="k">Warn</div><div class="v st-WARN">{{ report.summary.warnings }}</div></div>
+    <div class="card"><div class="k">N/A</div><div class="v st-NOT_APPLICABLE">{{ report.summary.not_applicable }}</div></div>
+    <div class="card"><div class="k">Error</div><div class="v st-ERROR">{{ report.summary.errors }}</div></div>
+    <div class="card"><div class="k">Controls</div><div class="v">{{ report.summary.total }}</div></div>
+  </div>
+
+  <h2>Category Scores</h2>
+  {% for c in report.category_scores %}
+    {% set cc = 'var(--pass)' if c.score >= 80 else ('var(--warn)' if c.score >= 50 else 'var(--fail)') %}
+    <div class="catbar">
+      <div style="text-transform:capitalize">{{ c.category }}
+        <span class="pill">{{ c.passed }}/{{ c.total }}</span></div>
+      <div class="track"><div class="fill" style="width: {{ c.score }}%; background: {{ cc }};"></div></div>
+      <div style="text-align:right; font-weight:700">{{ c.score }}%</div>
+    </div>
+  {% endfor %}
+
+  {% if risks %}
+  <h2>Prioritized Remediation Plan</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>#</th><th>Rule</th><th>Severity</th><th>Finding</th><th>Recommended action</th><th>Auto-fix</th></tr></thead>
+      <tbody>
+      {% for r in risks %}
+        <tr>
+          <td class="mono">{{ r.priority }}</td>
+          <td><code>{{ r.rule_id }}</code><br><span class="sub">{{ r.title }}</span></td>
+          <td><span class="badge sev-{{ r.severity }}">{{ r.severity }}</span>
+              <div class="sub st-{{ r.status }}">{{ r.status }}</div></td>
+          <td class="mono">{{ r.affected }}</td>
+          <td class="sub">{{ r.recommended_action }}</td>
+          <td>{{ '✓' if r.remediation_available else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <h2>System Information</h2>
+  <table class="infoTable">
+    <tr><td class="k">Hostname</td><td>{{ report.system.hostname }}</td></tr>
+    <tr><td class="k">Distribution</td><td>{{ report.system.distribution }} {{ report.system.version }}
+      {% if report.system.version_codename %}({{ report.system.version_codename }}){% endif %}</td></tr>
+    <tr><td class="k">Kernel</td><td>{{ report.system.kernel }}</td></tr>
+    <tr><td class="k">Architecture</td><td>{{ report.system.architecture }}</td></tr>
+    <tr><td class="k">Uptime</td><td>{{ report.system.uptime or 'n/a' }}</td></tr>
+    <tr><td class="k">CPU</td><td>{{ report.system.cpu_model or 'n/a' }} ({{ report.system.cpu_count }} vCPU)</td></tr>
+    <tr><td class="k">Memory</td><td>{{ report.system.memory_total_mb }} MB</td></tr>
+    <tr><td class="k">Firewall</td><td>{{ report.system.firewall.get('backend','unknown') }}
+      (active: {{ report.system.firewall.get('active', 'unknown') }})</td></tr>
+    <tr><td class="k">Listening ports</td><td>{{ report.system.listening_ports | length }}</td></tr>
+    <tr><td class="k">Installed packages</td><td>{{ report.system.installed_packages_count }}</td></tr>
+  </table>
+
+  <h2>All Findings ({{ report.findings | length }})</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Rule</th><th>Category</th><th>Severity</th><th>Status</th>
+        <th>Expected / Actual</th><th>Evidence</th></tr></thead>
+      <tbody>
+      {% for f in report.findings %}
+        <tr>
+          <td><code>{{ f.rule_id }}</code><br><span class="sub">{{ f.title }}</span>
+            <div class="sub pill">{{ f.benchmark_reference }}</div></td>
+          <td style="text-transform:capitalize">{{ f.category }}</td>
+          <td><span class="badge sev-{{ f.severity.value }}">{{ f.severity.value }}</span></td>
+          <td class="st-{{ f.status.value }}">{{ f.status.value }}</td>
+          <td class="mono">exp: {{ f.expected or '—' }}<br>act: {{ f.actual or '—' }}</td>
+          <td class="evidence">{{ f.evidence }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Scope &amp; Disclaimer</h2>
+  <div class="note">{{ report.disclaimer }}</div>
+
+  <footer>
+    Generated by Linux CIS Hardening Auditor v{{ report.tool_version }} — a defensive,
+    audit-only assessment tool. CIS® and CIS Benchmarks™ are trademarks of the Center for
+    Internet Security. This project is not affiliated with or endorsed by CIS.
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,40 @@
+# Linux CIS Hardening Auditor -- example configuration
+# Copy to config.yaml and adjust. All keys are optional; unspecified keys use
+# built-in defaults. Values are parsed with yaml.safe_load only.
+
+# Filesystem root the checks read from.
+#   "/"                  -> audit the live host (default)
+#   "/path/to/fixtures"  -> audit a canned tree (testing / demos)
+root: "/"
+
+# Path to the rule definitions.
+rules_file: "checks/rules.yaml"
+
+# SQLite database for historical audit results.
+database_path: "reports/audit_history.db"
+
+# Output directories.
+reports_dir: "reports"
+backups_dir: "backups"
+
+# Logging
+log_level: "INFO"        # DEBUG | INFO | WARNING | ERROR
+log_file: null           # e.g. "reports/auditor.log"
+
+# External command timeout (seconds).
+command_timeout: 30
+
+# Services surfaced for review (WARN, never auto-disabled). Adjust to your
+# environment -- a service being present is not automatically a finding.
+review_services:
+  - telnet.socket
+  - rsh.socket
+  - vsftpd.service
+  - avahi-daemon.service
+  - cups.service
+  - nfs-server.service
+  - rpcbind.service
+  - snmpd.service
+
+# Scoring: how much a WARN counts relative to a FAIL (0.0 - 1.0).
+warn_weight_factor: 0.5

@@ -1,0 +1,24 @@
+# Development / demo composition for the Linux CIS Hardening Auditor.
+# Everything here is READ-ONLY with respect to any host.
+services:
+
+  # Generate the sample reports (secure / mixed / insecure) into ./reports/demo
+  demo:
+    build: .
+    entrypoint: ["python", "scripts/demo.py"]
+    command: ["reports/demo"]
+    volumes:
+      - ./reports:/app/reports
+
+  # Run the test suite in the image.
+  tests:
+    build: .
+    entrypoint: ["python", "-m", "pytest", "-q"]
+    user: auditor
+
+  # Audit the host read-only (opt-in: `docker compose run host-audit`).
+  host-audit:
+    build: .
+    command: ["audit", "--root", "/host", "--no-save"]
+    volumes:
+      - /:/host:ro

@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Tool runtime artifacts (do not commit real audit output or backups)
+reports/*
+!reports/.gitkeep
+backups/*
+!backups/.gitkeep
+*.db
+*.sqlite3
+*.bak
+
+# Local config that may contain host-specific data
+config.yaml
+!config.yaml.example
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
