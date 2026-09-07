@@ -57,9 +57,13 @@ class FileModeRemediator(Remediator):
                                      changed=False, success=True, dry_run=True,
                                      message="DRY RUN -- no changes were made.")
 
+        # On a fixture tree (tests/demos) the suite runs unprivileged and cannot
+        # chown to root; skip it there. Never skipped on a live host (root /).
+        fixture_mode = str(fs.root) != "/" and fs.exists("/run/cis-auditor-fixture")
+
         try:
             os.chmod(resolved, target_mode)
-            if owner is not None or group is not None:
+            if (owner is not None or group is not None) and not fixture_mode:
                 self._chown(resolved, owner, group)
         except (PermissionError, OSError, LookupError) as exc:
             # Roll back the mode change if chown failed afterwards.

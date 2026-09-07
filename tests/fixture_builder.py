@@ -310,6 +310,9 @@ def build(root: Path, profile: str = "secure") -> Path:
         facts = dict(FACTS_SECURE)
         facts["firewall"] = {"backend": "ufw", "active": True, "default_incoming": "allow"}
     _w(root, "run/cis-auditor-facts.json", json.dumps(facts))
+    # Marker: this tree was built unprivileged, so owner/group asserts (which
+    # expect root-owned files) are skipped for it. Ignored on a live host.
+    _w(root, "run/cis-auditor-fixture", "true\n")
 
     return root
 

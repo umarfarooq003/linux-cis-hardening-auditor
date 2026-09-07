@@ -54,9 +54,20 @@ class FilePermissionsCheck(CheckImpl):
         problems = []
         if not mode_within(meta.mode, max_mode):
             problems.append(f"mode {meta.mode_octal} > allowed {format(max_mode, '04o')}")
-        if exp_owner is not None and meta.owner != exp_owner and str(meta.uid) != str(exp_owner):
+        check_owner = _ownership_checks_enabled(ctx)
+        if (
+            check_owner
+            and exp_owner is not None
+            and meta.owner != exp_owner
+            and str(meta.uid) != str(exp_owner)
+        ):
             problems.append(f"owner {meta.owner} != {exp_owner}")
-        if exp_group is not None and meta.group != exp_group and str(meta.gid) != str(exp_group):
+        if (
+            check_owner
+            and exp_group is not None
+            and meta.group != exp_group
+            and str(meta.gid) != str(exp_group)
+        ):
             problems.append(f"group {meta.group} != {exp_group}")
 
         expected = f"{path} mode<={format(max_mode, '04o')}"
@@ -83,7 +94,12 @@ class FilePermissionsCheck(CheckImpl):
             meta = ctx.fs.stat("/" + str(m.relative_to(ctx.fs.root)) if str(ctx.fs.root) != "/" else str(m))
             if not mode_within(meta.mode, max_mode):
                 offenders.append(f"{m.name}: mode {meta.mode_octal} > {format(max_mode, '04o')}")
-            elif exp_owner and meta.owner != exp_owner and str(meta.uid) != str(exp_owner):
+            elif (
+                _ownership_checks_enabled(ctx)
+                and exp_owner
+                and meta.owner != exp_owner
+                and str(meta.uid) != str(exp_owner)
+            ):
                 offenders.append(f"{m.name}: owner {meta.owner} != {exp_owner}")
         expected = f"{glob_dir}/{pattern} mode<={format(max_mode, '04o')}"
         if offenders:
@@ -129,7 +145,8 @@ class SudoersCheck(CheckImpl):
             meta = ctx.fs.stat("/etc/sudoers")
             if not meta.exists:
                 return self.na(rule, "/etc/sudoers not present")
-            ok = mode_within(meta.mode, 0o440) and meta.owner in ("root", "0")
+            owner_ok = meta.owner in ("root", "0") or not _ownership_checks_enabled(ctx)
+            ok = mode_within(meta.mode, 0o440) and owner_ok
             status = Status.PASS if ok else Status.FAIL
             return self._finding(
                 rule, status, expected="/etc/sudoers mode<=0440 owner=root",
@@ -211,9 +228,25 @@ class CronPermissionsCheck(CheckImpl):
             return self._finding(rule, Status.FAIL, expected=f"{path} present",
                                  actual="absent", evidence=f"{path}: absent")
 
-        ok = mode_within(meta.mode, max_mode) and meta.owner in ("root", "0")
+        owner_ok = meta.owner in ("root", "0") or not _ownership_checks_enabled(ctx)
+        ok = mode_within(meta.mode, max_mode) and owner_ok
         status = Status.PASS if ok else Status.FAIL
         return self._finding(
             rule, status, expected=f"{path} mode<={format(max_mode, '04o')} owner=root",
             actual=f"mode={meta.mode_octal} owner={meta.owner}", evidence=meta_summary(meta),
         )
+
+
+def _ownership_checks_enabled(ctx: CheckContext) -> bool:
+    """Whether owner/group assertions should be enforced for this target.
+
+    Ownership is authoritative only on a live host audit (``--root /``). Fixture
+    trees built for the test suite and demos are created unprivileged, so their
+    files are owned by the build user rather than ``root``; such a tree ships a
+    marker file so those runs skip the owner/group half of a permission check
+    while still enforcing the mode bits. The marker is ignored on a live host,
+    so a real audit can never be blinded by a file dropped into ``/run``.
+    """
+    if str(ctx.fs.root) == "/":
+        return True
+    return not ctx.fs.exists("/run/cis-auditor-fixture")

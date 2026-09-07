@@ -7,6 +7,8 @@ import pytest
 from app.checks.ssh import load_sshd_config
 from app.models.enums import Status
 from tests._helpers import evaluate
+from tests.conftest import make_context
+from tests.fixture_builder import build
 
 # (rule_id, expected_status_on_secure, expected_status_on_insecure)
 CASES = [
@@ -81,3 +83,17 @@ def test_nopasswd_flagged(ctx_insecure):
     f = evaluate("SUDO-003", ctx_insecure)
     assert f.status == Status.WARN
     assert "NOPASSWD" in f.evidence
+
+
+def test_fixture_marker_gates_ownership_checks(tmp_path):
+    """The fixture marker only suppresses owner asserts on a non-live tree.
+
+    With the marker the unprivileged secure tree passes USER-007; remove it and
+    the same file (owned by the build user, not root) must FAIL on ownership.
+    """
+    root = build(tmp_path / "r", "secure")
+    assert evaluate("USER-007", make_context(root)).status == Status.PASS
+    (root / "run/cis-auditor-fixture").unlink()
+    f = evaluate("USER-007", make_context(root))
+    assert f.status == Status.FAIL
+    assert "owner" in f.actual
